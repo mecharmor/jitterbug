@@ -109,6 +109,19 @@ jitterbug/
 └── package.json
 ```
 
+## Test Coverage
+
+![Coverage](https://img.shields.io/badge/coverage-0%25-red)
+
+| Metric | Coverage |
+|--------|----------|
+| Statements | 0% |
+| Branches | 0% |
+| Functions | 0% |
+| Lines | 0% |
+
+_This section is automatically updated on each push to main._
+
 ## License
 
 MIT
