@@ -139,14 +139,14 @@ import type { RetryOptions, BackoffStrategy } from 'jitterbug';
 
 ## Test Coverage
 
-![Coverage](https://img.shields.io/badge/coverage-100.00%25-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-91.15%25-brightgreen)
 
 | Metric | Coverage |
 |--------|----------|
-| Statements | 100.00% |
-| Branches | 96.67% |
-| Functions | 100.00% |
-| Lines | 100.00% |
+| Statements | 91.15% |
+| Branches | 93.55% |
+| Functions | 90.91% |
+| Lines | 91.15% |
 
 
 ## License
