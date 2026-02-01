@@ -2,17 +2,8 @@
  * Core retry logic implementation
  */
 
-export type BackoffStrategy = 'exponential' | 'linear' | 'fixed';
-
-export interface RetryOptions {
-  /** Maximum number of retry attempts (default: 3) */
-  maxAttempts?: number;
-  /** Base delay in milliseconds (default: 1000) */
-  delay?: number;
-  /** Backoff strategy: 'exponential', 'linear', or 'fixed' (default: 'exponential') */
-  backoff?: BackoffStrategy;
-  /** Callback called before each retry (error, attempt, waitTime) */
-  onRetry?: (error: Error, attempt: number, waitTime: number) => void;
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function calculateDelay(baseDelay: number, attempt: number, backoff: BackoffStrategy): number {
@@ -27,8 +18,17 @@ function calculateDelay(baseDelay: number, attempt: number, backoff: BackoffStra
   }
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+export type BackoffStrategy = 'exponential' | 'linear' | 'fixed';
+
+export interface RetryOptions {
+  /** Maximum number of retry attempts (default: 3) */
+  maxAttempts?: number;
+  /** Base delay in milliseconds (default: 1000) */
+  delay?: number;
+  /** Backoff strategy: 'exponential', 'linear', or 'fixed' (default: 'exponential') */
+  backoff?: BackoffStrategy;
+  /** Callback called before each retry (error, attempt, waitTime) */
+  onRetry?: (error: Error, attempt: number, waitTime: number) => void;
 }
 
 /**
@@ -37,7 +37,8 @@ function sleep(ms: number): Promise<void> {
  * @param options - Retry configuration
  * @returns A function that wraps the original function with retry logic
  */
-export function retry<T extends (...args: any[]) => Promise<any>>(
+// @typescript-eslint/no-explicit-any
+export function retry<T extends (...args: unknown[]) => Promise<unknown>>(
   fn: T,
   options: RetryOptions = {}
 ): T {
@@ -53,7 +54,7 @@ export function retry<T extends (...args: any[]) => Promise<any>>(
     
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        return await fn(...args);
+        return await fn(...args) as ReturnType<T>;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         

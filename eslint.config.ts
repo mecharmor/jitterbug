@@ -1,0 +1,16 @@
+import globals from "globals";
+import tseslint from "typescript-eslint";
+import { defineConfig } from "eslint/config";
+
+export default defineConfig([
+  {
+    ignores: ["dist/**", "coverage/**", "node_modules/**", "scripts/**"],
+  },
+  {
+    files: ["src/**/*.{js,mjs,cjs,ts,mts,cts}"],
+    languageOptions: {
+      globals: globals.browser,
+    },
+  },
+  ...tseslint.configs.recommended,
+]);

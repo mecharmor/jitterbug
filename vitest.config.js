@@ -12,7 +12,7 @@ export default defineConfig({
     },
     // Only include test files, not source files
     include: ['test/**/*.{js,ts}'],
-    exclude: ['node_modules', 'dist', 'src'],
+    exclude: ['node_modules', 'dist', 'src', 'scripts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -21,7 +21,9 @@ export default defineConfig({
         'test/',
         '*.config.js',
         '*.config.ts',
-        'dist/'
+        'dist/',
+        'scripts/',
+        'src/**/index.ts'
       ]
     }
   }
