@@ -1,6 +1,6 @@
 {
   "name": "jitterbug",
-  "version": "0.1.0",
+  "version": "1.0.0-alpha.0",
   "description": "A lightweight library for building reliable retry behavior in distributed systems and API clients",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
