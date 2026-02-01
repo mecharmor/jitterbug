@@ -152,3 +152,8 @@ import type { RetryOptions, BackoffStrategy } from 'jitterbug';
 ## License
 
 MIT
+
+---
+
+retry, retries, retry engine, retry logic, backoff, exponential backoff, linear backoff, fixed backoff, jitter, jitter strategies, decorrelated jitter, full jitter, equal jitter, random jitter, resilience, network utilities, API clients, distributed systems, TypeScript utilities
+
