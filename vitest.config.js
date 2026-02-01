@@ -23,6 +23,8 @@ export default defineConfig({
         '*.config.ts',
         'dist/',
         'scripts/',
+        'examples/',
+        'documentation/',
         'src/**/index.ts'
       ]
     }
