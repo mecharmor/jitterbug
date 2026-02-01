@@ -1,0 +1,23 @@
+# Test files
+test/
+*.test.js
+*.spec.js
+
+# Development files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Config files
+vitest.config.js
+.gitignore
+
+# Coverage
+coverage/
+.nyc_output/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+

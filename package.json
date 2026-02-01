@@ -1,0 +1,30 @@
+{
+  "name": "jitterbug",
+  "version": "0.1.0",
+  "description": "A lightweight library for building reliable retry behavior in distributed systems and API clients",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest --watch"
+  },
+  "devDependencies": {
+    "vitest": "^1.2.0",
+    "@vitest/coverage-v8": "^1.2.0"
+  },
+  "keywords": [
+    "retry",
+    "retry-logic",
+    "api-client",
+    "distributed-systems"
+  ],
+  "author": "Cory Lewis",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mecharmor/jitterbug.git"
+  }
+}
+
