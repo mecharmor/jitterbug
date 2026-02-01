@@ -1,7 +1,9 @@
 # Test files
 test/
 *.test.js
+*.test.ts
 *.spec.js
+*.spec.ts
 
 # Development files
 .vscode/
@@ -11,7 +13,14 @@ test/
 
 # Config files
 vitest.config.js
+tsconfig.json
+tsup.config.ts
 .gitignore
+
+# Source files (only dist is published)
+src/
+*.ts
+!*.d.ts
 
 # Coverage
 coverage/

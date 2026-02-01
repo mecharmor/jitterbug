@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { retry, calculateDelay, sleep } from '../src/retry.js';
+import { retry, calculateDelay, sleep } from '../src/retry.ts';
 
 describe('retry', () => {
   beforeEach(() => {

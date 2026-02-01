@@ -10,8 +10,10 @@ npm install jitterbug
 
 ## Usage
 
-```javascript
-import { retry } from 'jitterbug';
+### JavaScript/TypeScript
+
+```typescript
+import { retry, type RetryOptions } from 'jitterbug';
 
 // Basic usage
 const fetchWithRetry = retry(async (url) => {
@@ -45,21 +47,39 @@ try {
 
 ## API
 
-### `retry(fn, options)`
+### `retry<T>(fn: T, options?: RetryOptions): T`
 
 Creates a retry wrapper function.
 
 **Parameters:**
 - `fn`: The async function to retry
-- `options`: Configuration object
+- `options`: Configuration object (optional)
   - `maxAttempts` (number, default: 3): Maximum number of retry attempts
   - `delay` (number, default: 1000): Base delay in milliseconds
-  - `backoff` (string, default: 'exponential'): Backoff strategy ('exponential', 'linear', or 'fixed')
-  - `onRetry` (function, optional): Callback called before each retry
+  - `backoff` ('exponential' | 'linear' | 'fixed', default: 'exponential'): Backoff strategy
+  - `onRetry` ((error: Error, attempt: number, waitTime: number) => void, optional): Callback called before each retry
 
 **Returns:** A function that wraps the original function with retry logic
 
+**TypeScript Types:**
+```typescript
+import type { RetryOptions, BackoffStrategy } from 'jitterbug';
+```
+
 ## Development
+
+### Building
+
+```bash
+# Build the project
+npm run build
+
+# Build in watch mode
+npm run dev
+
+# Type check without building
+npm run typecheck
+```
 
 ### Running Tests
 
@@ -78,12 +98,14 @@ npm run test:coverage
 
 ```
 jitterbug/
-├── src/           # Source code
-│   ├── retry.js   # Core retry implementation
-│   └── index.js   # Main entry point
-├── test/          # Test files
+├── src/              # TypeScript source code
+│   ├── retry.ts      # Core retry implementation
+│   └── index.ts      # Main entry point
+├── dist/             # Built output (ESM + CJS + types)
+├── test/             # Test files
 │   └── retry.test.js
-├── index.js       # Package entry point
+├── tsconfig.json     # TypeScript configuration
+├── tsup.config.ts    # Build configuration
 └── package.json
 ```
 
