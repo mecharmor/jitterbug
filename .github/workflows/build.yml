@@ -39,16 +39,18 @@ jobs:
         run: npm run test:run
 
       - name: Generate coverage report
+        id: coverage
         run: npm run test:coverage
         continue-on-error: true
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
-        if: matrix.node-version == '20.x' && github.event_name == 'push'
+        if: matrix.node-version == '20.x' && github.event_name == 'push' && steps.coverage.outcome == 'success'
         with:
           name: coverage-report
           path: coverage/coverage-final.json
           retention-days: 1
+          if-no-files-found: warn
 
   update-coverage:
     needs: build-and-test
@@ -56,6 +58,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
+    continue-on-error: true
 
     steps:
       - name: Checkout code
@@ -63,18 +66,35 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download coverage artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: coverage-report
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
 
-      - name: Update README with coverage
-        run: node scripts/update-coverage.js
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: coverage-report
+          path: ./
+
+      - name: Verify coverage file and update README
+        run: |
+          # Check if file exists in various possible locations
+          if [ -f "coverage/coverage-final.json" ]; then
+            echo "Found coverage file at coverage/coverage-final.json"
+            node scripts/update-coverage.js
+          elif [ -f "coverage-final.json" ]; then
+            echo "Found coverage file at coverage-final.json, moving to coverage/"
+            mkdir -p coverage
+            mv coverage-final.json coverage/coverage-final.json
+            node scripts/update-coverage.js
+          else
+            echo "Coverage file not found, listing directory contents:"
+            ls -la
+            echo "Skipping README update"
+            exit 0
+          fi
 
       - name: Commit and push coverage update
         run: |
