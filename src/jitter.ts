@@ -29,7 +29,6 @@ export function calculateEqualJitter(baseDelayMs: number): number {
     return halfDelay + Math.random() * halfDelay;
 }
 
-
 /**
  * Calculates a fixed‑jitter delay by subtracting a constant amount from the base delay. Unlike random jitter strategies, fixed jitter provides predictable timing while still preventing perfectly aligned retries.
  * Use this when you want a small, consistent desynchronization between clients without introducing randomness — ideal for stable systems where timing consistency matters more than wide jitter distribution.
