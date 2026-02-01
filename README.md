@@ -2,7 +2,7 @@
 
 ![Build Status](https://github.com/mecharmor/jitterbug/actions/workflows/build.yml/badge.svg?branch=main)
 ![Tests](https://img.shields.io/github/actions/workflow/status/mecharmor/jitterbug/build.yml?branch=main&label=tests)
-![Version](https://img.shields.io/npm/v/jitterbug?label=version)
+[![npm version](https://img.shields.io/npm/v/jitterbug.svg)](https://www.npmjs.com/package/jitterbug)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Coverage](https://img.shields.io/badge/coverage-100.00%25-brightgreen)
 
@@ -10,6 +10,7 @@
 Jitterbug is a modern, type‑safe retry engine for Node.js  and browser environments. It provides predictable backoff behavior and a suite of configurable jitter strategies, all wrapped in a clean, minimal API. The library is intentionally lightweight and dependency‑free to keep integration simple and reduce risk for consumers.
 
 Designed to be framework‑agnostic and easy to adopt, Jitterbug emphasizes clarity, reliability, and maintainability. Its implementation is backed by comprehensive automated testing to ensure consistent behavior and to support confident contributions from the community.
+
 
 
 ## Installation
