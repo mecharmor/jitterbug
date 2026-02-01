@@ -143,7 +143,7 @@ import type { RetryOptions, BackoffStrategy } from 'jitterbug';
 | Metric | Coverage |
 |--------|----------|
 | Statements | 100.00% |
-| Branches | 95.00% |
+| Branches | 96.67% |
 | Functions | 100.00% |
 | Lines | 100.00% |
 
