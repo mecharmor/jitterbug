@@ -4,6 +4,7 @@
 ![Tests](https://img.shields.io/github/actions/workflow/status/mecharmor/jitterbug/build.yml?branch=main&label=tests)
 [![npm version](https://img.shields.io/npm/v/jitterbug.svg)](https://www.npmjs.com/package/jitterbug)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Integration Tests](https://img.shields.io/github/actions/workflow/status/mecharmor/jitterbug/build.yml?branch=main&label=integration)
 ![Coverage](https://img.shields.io/badge/coverage-100.00%25-brightgreen)
 
 
