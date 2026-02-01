@@ -2,6 +2,11 @@
 
 Jitterbug is a lightweight library for building reliable retry behavior in distributed systems and API clients.
 
+![Build Status](https://github.com/mecharmor/jitterbug/actions/workflows/build.yml/badge.svg?branch=main)
+![Tests](https://img.shields.io/github/actions/workflow/status/mecharmor/jitterbug/build.yml?branch=main&label=tests)
+![Version](https://img.shields.io/npm/v/jitterbug?label=version)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+
 ## Installation
 
 ```bash
