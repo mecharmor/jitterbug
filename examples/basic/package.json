@@ -1,0 +1,12 @@
+{
+    "name": "jitterbug-integration-basic",
+    "private": true,
+    "type": "module",
+    "scripts": {
+      "test": "node test.js"
+    },
+    "dependencies": {
+      "jitterbug": "file:../../"
+    }
+  }
+  
