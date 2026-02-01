@@ -111,16 +111,15 @@ jitterbug/
 
 ## Test Coverage
 
-![Coverage](https://img.shields.io/badge/coverage-0%25-red)
+![Coverage](https://img.shields.io/badge/coverage-37.31%25-red)
 
 | Metric | Coverage |
 |--------|----------|
-| Statements | 0% |
-| Branches | 0% |
-| Functions | 0% |
-| Lines | 0% |
+| Statements | 37.31% |
+| Branches | 82.35% |
+| Functions | 66.67% |
+| Lines | 37.31% |
 
-_This section is automatically updated on each push to main._
 
 ## License
 
