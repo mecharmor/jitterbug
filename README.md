@@ -7,7 +7,7 @@
 ![Integration Tests](https://img.shields.io/github/actions/workflow/status/mecharmor/jitterbug/build.yml?branch=main&label=integration)
 ![Coverage](https://img.shields.io/badge/coverage-100.00%25-brightgreen)
 
-**[Try the Interactive Visualizer →](https://htmlpreview.github.io/?https://github.com/mecharmor/jitterbug/blob/main/index.html)**
+**[Try the Interactive Visualizer →](https://mecharmor.github.io/jitterbug/)**
 
 Watch retry strategies in action! The visualizer shows live retry loops with different backoff and jitter strategies, demonstrating how jitter prevents retry storms in distributed systems.
 
