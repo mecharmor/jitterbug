@@ -121,7 +121,7 @@
         <p class="subtitle">Visualize retry backoff and jitter strategies</p>
         
         <div class="info">
-            Watch retry loops run in real-time! Multiple concurrent retry loops are simulated to show how jitter spreads out retry attempts. The chart scrolls like a heart rate monitor showing delays as they occur.
+            Watch retry loops run in real-time! Multiple concurrent retry loops are simulated to show how jitter creates variance in retry delays. Each line represents a different run - notice how jitter causes different runs to have different delay values for the same attempt number, spreading out retries and preventing synchronized retry storms.
         </div>
 
         <div class="controls">
@@ -175,7 +175,16 @@
 
     <script type="module">
         // Import jitterbug library from npm CDN
-        import { retry } from 'https://cdn.jsdelivr.net/npm/jitterbug/dist/index.js';
+        import jitterbug, { retry, calculateDelay } from 'https://cdn.jsdelivr.net/npm/jitterbug/dist/index.js';
+        
+        // Extract jitter functions from default export
+        const {
+            calculateEqualJitter,
+            calculateFullJitter,
+            calculateFixedJitter,
+            calculateRandomJitter,
+            calculateDecorrelatedJitter
+        } = jitterbug;
 
         let chart = null;
         let isRunning = false;
@@ -184,7 +193,8 @@
         let updateQueue = [];
         let animationFrameId = null;
         let restartTimeout = null;
-        const maxDataPoints = 100; // Keep last 100 data points for scrolling effect
+        let attemptCounters = {}; // Track attempt number for each run
+        const maxDataPoints = 50; // Keep last 50 data points
         const colors = [
             'rgb(255, 99, 132)',
             'rgb(54, 162, 235)',
@@ -288,18 +298,24 @@
                             position: 'bottom',
                             title: {
                                 display: true,
-                                text: 'Time (seconds)',
+                                text: 'Retry Attempt',
                                 color: 'white'
                             },
                             ticks: {
                                 color: 'white',
+                                stepSize: 1,
                                 callback: function(value) {
-                                    return value.toFixed(1) + 's';
+                                    if (Number.isInteger(value)) {
+                                        return value;
+                                    }
+                                    return '';
                                 }
                             },
                             grid: {
                                 color: 'rgba(255, 255, 255, 0.1)'
-                            }
+                            },
+                            min: 0.5,
+                            max: 5.5
                         },
                         y: {
                             title: {
@@ -320,11 +336,11 @@
             });
         }
 
-        function addDataPoint(runIndex, time, delay) {
+        function addDataPoint(runIndex, attempt, delay) {
             if (!chart || !isRunning) return; // Don't add points if stopped
 
             // Queue the update instead of applying immediately
-            updateQueue.push({ runIndex, time, delay });
+            updateQueue.push({ runIndex, attempt, delay });
 
             // Schedule update on next animation frame for smooth rendering
             if (!animationFrameId) {
@@ -339,26 +355,24 @@
             }
 
             // Process all queued updates
-            let maxTime = 0;
-            updateQueue.forEach(({ runIndex, time, delay }) => {
+            let maxAttempt = 0;
+            updateQueue.forEach(({ runIndex, attempt, delay }) => {
                 const dataset = chart.data.datasets[runIndex];
                 if (dataset) {
-                    dataset.data.push({ x: time, y: delay });
+                    dataset.data.push({ x: attempt, y: delay });
                     
                     // Remove old data points to keep scrolling effect
                     if (dataset.data.length > maxDataPoints) {
                         dataset.data.shift();
                     }
                 }
-                maxTime = Math.max(maxTime, time);
+                maxAttempt = Math.max(maxAttempt, attempt);
             });
 
-            // Update x-axis range for scrolling effect
-            if (maxTime > 0) {
-                const minX = Math.max(0, maxTime - 10); // Show last 10 seconds
-                const maxX = maxTime + 1;
-                chart.options.scales.x.min = minX;
-                chart.options.scales.x.max = maxX;
+            // Update x-axis range to show all attempts
+            if (maxAttempt > 0) {
+                chart.options.scales.x.min = 0.5;
+                chart.options.scales.x.max = maxAttempt + 0.5;
             }
 
             // Clear the queue and update chart with smooth animation
@@ -369,6 +383,30 @@
         }
 
         async function runRetryLoop(runIndex, backoff, jitterConfig, baseDelay, maxAttempts) {
+            // Reset attempt counter for this run
+            attemptCounters[runIndex] = 0;
+            
+            let prevJitterDelay = 0;
+            let prevTotalDelay = 0;
+            
+            // Helper to apply jitter (matching retry.ts logic)
+            function applyJitter(baseDelay, jitter, prevDelay) {
+                if (!jitter || jitter.type === 'none') return 0;
+                switch (jitter.type) {
+                    case 'equal':
+                        return calculateEqualJitter(baseDelay);
+                    case 'full':
+                        return calculateFullJitter(jitter.min, jitter.max);
+                    case 'fixed':
+                        return calculateFixedJitter(baseDelay, jitter.amount);
+                    case 'random':
+                        return calculateRandomJitter(baseDelay, jitter.fraction);
+                    case 'decorrelated':
+                        return calculateDecorrelatedJitter(baseDelay, jitter.maxDelay, prevDelay);
+                }
+                return 0;
+            }
+            
             // Create a function that always fails
             const failingFunction = async () => {
                 // Check if we should stop before throwing
@@ -386,15 +424,35 @@
                 jitterConfig: jitterConfig,
                 onRetry: (error, attempt, waitTime) => {
                     // Only add data point if still running
+                    // attempt is the attempt number that just failed
+                    // waitTime is the delay before the next attempt
                     if (isRunning) {
-                        const currentTime = (Date.now() - startTime) / 1000; // Convert to seconds
-                        addDataPoint(runIndex, currentTime, waitTime);
+                        attemptCounters[runIndex] = attempt;
+                        // Track previous delays for decorrelated jitter
+                        const base = calculateDelay(baseDelay, attempt, backoff);
+                        const prevDelayForJitter = (jitterConfig.type === 'decorrelated') ? prevTotalDelay : prevJitterDelay;
+                        const jitter = applyJitter(base, jitterConfig, prevDelayForJitter);
+                        prevJitterDelay = jitter;
+                        prevTotalDelay = base + jitter;
+                        addDataPoint(runIndex, attempt, waitTime);
                     }
                 }
             });
 
             try {
                 await retriedFunction();
+                // After all retries are exhausted, calculate and show the final attempt
+                // The last onRetry call was for attempt (maxAttempts - 1)
+                if (isRunning && attemptCounters[runIndex] < maxAttempts) {
+                    // Calculate the delay for the final attempt (maxAttempts)
+                    const finalBaseDelay = calculateDelay(baseDelay, maxAttempts, backoff);
+                    const prevDelayForJitter = (jitterConfig.type === 'decorrelated') ? prevTotalDelay : prevJitterDelay;
+                    const finalJitter = applyJitter(finalBaseDelay, jitterConfig, prevDelayForJitter);
+                    const finalWaitTime = finalBaseDelay + finalJitter;
+                    
+                    attemptCounters[runIndex] = maxAttempts;
+                    addDataPoint(runIndex, maxAttempts, finalWaitTime);
+                }
             } catch (error) {
                 // Expected - all retries exhausted or stopped
             }
@@ -417,6 +475,7 @@
 
             // Initialize chart with datasets for each run
             chart.data.datasets = [];
+            attemptCounters = {}; // Reset attempt counters
             for (let i = 0; i < numRuns; i++) {
                 chart.data.datasets.push({
                     label: `Run ${i + 1}`,
@@ -424,11 +483,12 @@
                     borderColor: colors[i % colors.length],
                     backgroundColor: colors[i % colors.length] + '40',
                     borderWidth: 2,
-                    pointRadius: 3,
-                    pointHoverRadius: 5,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
                     fill: false,
                     tension: 0.1
                 });
+                attemptCounters[i] = 0;
             }
             chart.update();
 
