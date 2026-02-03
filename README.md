@@ -9,8 +9,6 @@
 
 **[Try the Interactive Visualizer →](https://mecharmor.github.io/jitterbug/)**
 
-Watch retry strategies in action! The visualizer shows live retry loops with different backoff and jitter strategies, demonstrating how jitter prevents retry storms in distributed systems.
-
 ---
 
 Jitterbug is a modern, type‑safe retry engine for Node.js  and browser environments. It provides predictable backoff behavior and a suite of configurable jitter strategies, all wrapped in a clean, minimal API. The library is intentionally lightweight and dependency‑free to keep integration simple and reduce risk for consumers.
