@@ -441,20 +441,32 @@
 
             try {
                 await retriedFunction();
-                // After all retries are exhausted, calculate and show the final attempt
-                // The last onRetry call was for attempt (maxAttempts - 1)
-                if (isRunning && attemptCounters[runIndex] < maxAttempts) {
+            } catch (error) {
+                // Expected - all retries exhausted or stopped
+            } finally {
+                // Always add the final attempt after retries complete
+                // onRetry is only called for attempts 1 through (maxAttempts - 1)
+                // So we need to manually add attempt maxAttempts
+                if (isRunning) {
                     // Calculate the delay for the final attempt (maxAttempts)
+                    // This is the delay that would have been used before attempt maxAttempts
                     const finalBaseDelay = calculateDelay(baseDelay, maxAttempts, backoff);
                     const prevDelayForJitter = (jitterConfig.type === 'decorrelated') ? prevTotalDelay : prevJitterDelay;
                     const finalJitter = applyJitter(finalBaseDelay, jitterConfig, prevDelayForJitter);
                     const finalWaitTime = finalBaseDelay + finalJitter;
                     
                     attemptCounters[runIndex] = maxAttempts;
-                    addDataPoint(runIndex, maxAttempts, finalWaitTime);
+                    // Add directly to ensure it's shown
+                    const dataset = chart?.data.datasets[runIndex];
+                    if (dataset) {
+                        dataset.data.push({ x: maxAttempts, y: finalWaitTime });
+                        // Update x-axis to show the final attempt
+                        if (chart) {
+                            chart.options.scales.x.max = maxAttempts + 0.5;
+                            chart.update('active');
+                        }
+                    }
                 }
-            } catch (error) {
-                // Expected - all retries exhausted or stopped
             }
         }
 
