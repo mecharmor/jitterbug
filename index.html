@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jitterbug Retry Strategy Visualizer</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 6px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #444;
+            font-size: 14px;
+        }
+        select, input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .chart-container {
+            position: relative;
+            height: 500px;
+            margin-bottom: 40px;
+            background: #000;
+            border-radius: 6px;
+            padding: 10px;
+        }
+        .chart-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .info {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196F3;
+            font-size: 14px;
+            color: #555;
+        }
+        .controls button {
+            padding: 10px 20px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .controls button:hover {
+            background: #1976D2;
+        }
+        .controls button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        .status.running {
+            background: #4CAF50;
+            color: white;
+        }
+        .status.stopped {
+            background: #f44336;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Jitterbug Retry Strategy Visualizer</h1>
+        <p class="subtitle">Visualize retry backoff and jitter strategies</p>
+        
+        <div class="info">
+            Watch retry loops run in real-time! Multiple concurrent retry loops are simulated to show how jitter spreads out retry attempts. The chart scrolls like a heart rate monitor showing delays as they occur.
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="backoff">Backoff Strategy</label>
+                <select id="backoff">
+                    <option value="exponential">Exponential</option>
+                    <option value="linear" selected>Linear</option>
+                    <option value="fixed">Fixed</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="jitter">Jitter Type</label>
+                <select id="jitter">
+                    <option value="none">None</option>
+                    <option value="equal">Equal</option>
+                    <option value="full">Full</option>
+                    <option value="fixed">Fixed</option>
+                    <option value="random">Random</option>
+                    <option value="decorrelated" selected>Decorrelated</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="baseDelay">Base Delay (ms)</label>
+                <input type="number" id="baseDelay" value="1000" min="100" step="100">
+            </div>
+            <div class="control-group">
+                <label for="maxAttempts">Max Attempts</label>
+                <input type="number" id="maxAttempts" value="5" min="2" max="10" step="1">
+            </div>
+            <div class="control-group">
+                <label for="numRuns">Concurrent Runs</label>
+                <input type="number" id="numRuns" value="10" min="1" max="10" step="1">
+            </div>
+            <div class="control-group" id="jitterParams">
+                <label id="jitterParamLabel">Max Delay (ms)</label>
+                <input type="number" id="jitterParam" value="10000" min="0" step="100">
+            </div>
+            <div class="control-group">
+                <label>&nbsp;</label>
+                <button id="startStopBtn">Start</button>
+                <span id="status" class="status stopped">Stopped</span>
+            </div>
+        </div>
+
+        <div class="chart-title">Live Retry Monitor</div>
+        <div class="chart-container">
+            <canvas id="retryChart"></canvas>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import jitterbug library from npm CDN
+        import { retry } from 'https://cdn.jsdelivr.net/npm/jitterbug/dist/index.js';
+
+        let chart = null;
+        let isRunning = false;
+        let retryLoops = [];
+        let startTime = 0;
+        let updateQueue = [];
+        let animationFrameId = null;
+        let restartTimeout = null;
+        const maxDataPoints = 100; // Keep last 100 data points for scrolling effect
+        const colors = [
+            'rgb(255, 99, 132)',
+            'rgb(54, 162, 235)',
+            'rgb(255, 206, 86)',
+            'rgb(75, 192, 192)',
+            'rgb(153, 102, 255)',
+            'rgb(255, 159, 64)',
+            'rgb(199, 199, 199)',
+            'rgb(83, 102, 255)',
+            'rgb(255, 99, 255)',
+            'rgb(99, 255, 132)'
+        ];
+
+        function getJitterConfig(jitterType, jitterParam, baseDelay) {
+            switch (jitterType) {
+                case 'none':
+                    return { type: 'none' };
+                case 'equal':
+                    return { type: 'equal' };
+                case 'full':
+                    return { type: 'full', min: jitterParam, max: baseDelay * 2 };
+                case 'fixed':
+                    return { type: 'fixed', amount: jitterParam };
+                case 'random':
+                    return { type: 'random', fraction: jitterParam / 100 };
+                case 'decorrelated':
+                    return { type: 'decorrelated', maxDelay: jitterParam };
+                default:
+                    return { type: 'none' };
+            }
+        }
+
+        function initializeChart() {
+            const ctx = document.getElementById('retryChart').getContext('2d');
+            
+            if (chart) {
+                chart.destroy();
+            }
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: []
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 400, // Smooth animation duration
+                        easing: 'easeOutQuart' // Smooth easing function
+                    },
+                    transitions: {
+                        show: {
+                            animations: {
+                                x: {
+                                    from: 0
+                                },
+                                y: {
+                                    from: 0
+                                }
+                            },
+                            duration: 400
+                        },
+                        hide: {
+                            animations: {
+                                x: {
+                                    to: 0
+                                },
+                                y: {
+                                    to: 0
+                                }
+                            },
+                            duration: 400
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: 'white',
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + Math.round(context.parsed.y) + ' ms';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: {
+                                display: true,
+                                text: 'Time (seconds)',
+                                color: 'white'
+                            },
+                            ticks: {
+                                color: 'white',
+                                callback: function(value) {
+                                    return value.toFixed(1) + 's';
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Delay (ms)',
+                                color: 'white'
+                            },
+                            ticks: {
+                                color: 'white'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function addDataPoint(runIndex, time, delay) {
+            if (!chart || !isRunning) return; // Don't add points if stopped
+
+            // Queue the update instead of applying immediately
+            updateQueue.push({ runIndex, time, delay });
+
+            // Schedule update on next animation frame for smooth rendering
+            if (!animationFrameId) {
+                animationFrameId = requestAnimationFrame(processUpdateQueue);
+            }
+        }
+
+        function processUpdateQueue() {
+            if (!chart || updateQueue.length === 0) {
+                animationFrameId = null;
+                return;
+            }
+
+            // Process all queued updates
+            let maxTime = 0;
+            updateQueue.forEach(({ runIndex, time, delay }) => {
+                const dataset = chart.data.datasets[runIndex];
+                if (dataset) {
+                    dataset.data.push({ x: time, y: delay });
+                    
+                    // Remove old data points to keep scrolling effect
+                    if (dataset.data.length > maxDataPoints) {
+                        dataset.data.shift();
+                    }
+                }
+                maxTime = Math.max(maxTime, time);
+            });
+
+            // Update x-axis range for scrolling effect
+            if (maxTime > 0) {
+                const minX = Math.max(0, maxTime - 10); // Show last 10 seconds
+                const maxX = maxTime + 1;
+                chart.options.scales.x.min = minX;
+                chart.options.scales.x.max = maxX;
+            }
+
+            // Clear the queue and update chart with smooth animation
+            updateQueue = [];
+            chart.update('active'); // Use 'active' mode for smooth transitions
+            
+            animationFrameId = null;
+        }
+
+        async function runRetryLoop(runIndex, backoff, jitterConfig, baseDelay, maxAttempts) {
+            // Create a function that always fails
+            const failingFunction = async () => {
+                // Check if we should stop before throwing
+                if (!isRunning) {
+                    throw new Error('Stopped');
+                }
+                throw new Error('Simulated failure');
+            };
+
+            // Wrap with retry logic
+            const retriedFunction = retry(failingFunction, {
+                maxAttempts: maxAttempts,
+                delay: baseDelay,
+                backoff: backoff,
+                jitterConfig: jitterConfig,
+                onRetry: (error, attempt, waitTime) => {
+                    // Only add data point if still running
+                    if (isRunning) {
+                        const currentTime = (Date.now() - startTime) / 1000; // Convert to seconds
+                        addDataPoint(runIndex, currentTime, waitTime);
+                    }
+                }
+            });
+
+            try {
+                await retriedFunction();
+            } catch (error) {
+                // Expected - all retries exhausted or stopped
+            }
+        }
+
+        async function startMonitoring() {
+            if (isRunning) return;
+            
+            isRunning = true;
+            startTime = Date.now();
+            
+            const backoff = document.getElementById('backoff').value;
+            const jitterType = document.getElementById('jitter').value;
+            const baseDelay = parseInt(document.getElementById('baseDelay').value);
+            const maxAttempts = parseInt(document.getElementById('maxAttempts').value);
+            const jitterParam = parseInt(document.getElementById('jitterParam').value);
+            const numRuns = parseInt(document.getElementById('numRuns').value);
+
+            const jitterConfig = getJitterConfig(jitterType, jitterParam, baseDelay);
+
+            // Initialize chart with datasets for each run
+            chart.data.datasets = [];
+            for (let i = 0; i < numRuns; i++) {
+                chart.data.datasets.push({
+                    label: `Run ${i + 1}`,
+                    data: [],
+                    borderColor: colors[i % colors.length],
+                    backgroundColor: colors[i % colors.length] + '40',
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    fill: false,
+                    tension: 0.1
+                });
+            }
+            chart.update();
+
+            // Update UI
+            document.getElementById('startStopBtn').textContent = 'Stop';
+            document.getElementById('startStopBtn').disabled = false;
+            document.getElementById('status').textContent = 'Running';
+            document.getElementById('status').className = 'status running';
+            
+            // Disable controls while running
+            document.getElementById('backoff').disabled = true;
+            document.getElementById('jitter').disabled = true;
+            document.getElementById('baseDelay').disabled = true;
+            document.getElementById('maxAttempts').disabled = true;
+            document.getElementById('numRuns').disabled = true;
+            document.getElementById('jitterParam').disabled = true;
+
+            // Start multiple retry loops concurrently
+            retryLoops = [];
+            for (let i = 0; i < numRuns; i++) {
+                const loop = runRetryLoop(i, backoff, jitterConfig, baseDelay, maxAttempts);
+                retryLoops.push(loop);
+            }
+
+            // Wait for all loops to complete, then restart
+            await Promise.all(retryLoops);
+            
+            // Auto-restart after a brief pause (only if still running)
+            if (isRunning) {
+                restartTimeout = setTimeout(() => {
+                    if (isRunning) {
+                        startMonitoring();
+                    }
+                }, 500);
+            }
+        }
+
+        function stopMonitoring() {
+            isRunning = false;
+            retryLoops = [];
+            
+            // Cancel any pending restart timeout
+            if (restartTimeout) {
+                clearTimeout(restartTimeout);
+                restartTimeout = null;
+            }
+            
+            // Cancel any pending animation frame
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            
+            // Process any remaining queued updates (but no new ones will be added)
+            if (updateQueue.length > 0) {
+                processUpdateQueue();
+            }
+            updateQueue = [];
+            
+            // Update UI
+            document.getElementById('startStopBtn').textContent = 'Start';
+            document.getElementById('status').textContent = 'Stopped';
+            document.getElementById('status').className = 'status stopped';
+            
+            // Re-enable controls
+            document.getElementById('backoff').disabled = false;
+            document.getElementById('jitter').disabled = false;
+            document.getElementById('baseDelay').disabled = false;
+            document.getElementById('maxAttempts').disabled = false;
+            document.getElementById('numRuns').disabled = false;
+            document.getElementById('jitterParam').disabled = false;
+        }
+
+        // Update jitter parameter visibility and label
+        function updateJitterParams() {
+            const jitterType = document.getElementById('jitter').value;
+            const jitterParams = document.getElementById('jitterParams');
+            const label = document.getElementById('jitterParamLabel');
+            const input = document.getElementById('jitterParam');
+
+            if (jitterType === 'none') {
+                jitterParams.style.display = 'none';
+            } else {
+                jitterParams.style.display = 'block';
+                switch (jitterType) {
+                    case 'full':
+                        label.textContent = 'Min Delay (ms)';
+                        input.value = 500;
+                        break;
+                    case 'fixed':
+                        label.textContent = 'Fixed Amount (ms)';
+                        input.value = 200;
+                        break;
+                    case 'random':
+                        label.textContent = 'Jitter Fraction (%)';
+                        input.value = 20;
+                        input.min = 0;
+                        input.max = 100;
+                        break;
+                    case 'decorrelated':
+                        label.textContent = 'Max Delay (ms)';
+                        input.value = 10000;
+                        break;
+                    default:
+                        jitterParams.style.display = 'none';
+                }
+            }
+        }
+
+        // Event listeners
+        document.getElementById('startStopBtn').addEventListener('click', () => {
+            if (isRunning) {
+                stopMonitoring();
+            } else {
+                startMonitoring();
+            }
+        });
+
+        document.getElementById('jitter').addEventListener('change', updateJitterParams);
+
+        // Initialize
+        updateJitterParams();
+        initializeChart();
+        
+        // Auto-start for "wow" factor
+        setTimeout(() => {
+            startMonitoring();
+        }, 500); // Small delay to ensure chart is fully initialized
+    </script>
+</body>
+</html>
