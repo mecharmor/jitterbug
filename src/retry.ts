@@ -29,34 +29,130 @@ export type JitterConfig =
   | { type: 'random', fraction: number }
   | { type: 'decorrelated', maxDelay: number };
 
-  function applyJitter(
-    baseDelay: number,
-    jitter: JitterConfig | undefined,
-    prevDelay: number
-  ): number {
-    if (!jitter || jitter.type === 'none') return 0;
+  function validateJitterResult(result: number, jitterType: string): void {
+  if (typeof result !== 'number') {
+    throw new Error(`Jitter calculation (${jitterType}) returned non-number: ${typeof result}`);
+  }
   
+  if (!isFinite(result)) {
+    throw new Error(`Jitter calculation (${jitterType}) returned non-finite value: ${result}`);
+  }
+  
+  if (result < 0) {
+    throw new Error(`Jitter calculation (${jitterType}) returned negative value: ${result}`);
+  }
+  
+  if (isNaN(result)) {
+    throw new Error(`Jitter calculation (${jitterType}) returned NaN`);
+  }
+}
+
+  function applyJitter(
+  baseDelay: number,
+  jitter: JitterConfig | undefined,
+  prevDelay: number
+): number {
+  if (!jitter || jitter.type === 'none') return 0;
+
+  // Validate baseDelay
+  if (baseDelay < 0 || !isFinite(baseDelay)) {
+    throw new Error(`Invalid baseDelay: ${baseDelay}. Must be a non-negative finite number.`);
+  }
+
+  // Validate prevDelay
+  if (prevDelay < 0 || !isFinite(prevDelay)) {
+    throw new Error(`Invalid prevDelay: ${prevDelay}. Must be a non-negative finite number.`);
+  }
+
+  let result: number;
+
+  try {
     switch (jitter.type) {
       case 'equal':
-        return calculateEqualJitter(baseDelay);
-  
+        result = calculateEqualJitter(baseDelay);
+        validateJitterResult(result, 'equal');
+        return result;
+
       case 'full':
-        return calculateFullJitter(jitter.min, jitter.max);
-  
+        if (jitter.min < 0 || !isFinite(jitter.min)) {
+          throw new Error(`Invalid min delay: ${jitter.min}. Must be a non-negative finite number.`);
+        }
+        if (jitter.max < 0 || !isFinite(jitter.max)) {
+          throw new Error(`Invalid max delay: ${jitter.max}. Must be a non-negative finite number.`);
+        }
+        if (jitter.min >= jitter.max) {
+          throw new Error(`Invalid delay range: min (${jitter.min}) must be less than max (${jitter.max}).`);
+        }
+        result = calculateFullJitter(jitter.min, jitter.max);
+        validateJitterResult(result, 'full');
+        
+        // Additional validation: result should be within expected range
+        if (result < jitter.min || result > jitter.max) {
+          throw new Error(`Full jitter result ${result} outside expected range [${jitter.min}, ${jitter.max}]`);
+        }
+        return result;
+
       case 'fixed':
-        return calculateFixedJitter(baseDelay, jitter.amount);
-  
+        if (jitter.amount < 0 || !isFinite(jitter.amount)) {
+          throw new Error(`Invalid jitter amount: ${jitter.amount}. Must be a non-negative finite number.`);
+        }
+        result = calculateFixedJitter(baseDelay, jitter.amount);
+        validateJitterResult(result, 'fixed');
+        
+        // Fixed jitter should never exceed baseDelay
+        if (result > baseDelay) {
+          throw new Error(`Fixed jitter result ${result} exceeds baseDelay ${baseDelay}`);
+        }
+        return result;
+
       case 'random':
-        return calculateRandomJitter(baseDelay, jitter.fraction);
-  
+        if (jitter.fraction < 0 || jitter.fraction > 1 || !isFinite(jitter.fraction)) {
+          throw new Error(`Invalid jitter fraction: ${jitter.fraction}. Must be between 0 and 1.`);
+        }
+        result = calculateRandomJitter(baseDelay, jitter.fraction);
+        validateJitterResult(result, 'random');
+        
+        // Random jitter should be within reasonable bounds based on fraction
+        const expectedMin = baseDelay * (1 - jitter.fraction);
+        const expectedMax = baseDelay * (1 + jitter.fraction);
+        if (result < expectedMin || result > expectedMax) {
+          throw new Error(`Random jitter result ${result} outside expected range [${expectedMin}, ${expectedMax}]`);
+        }
+        return result;
+
       case 'decorrelated':
-        return calculateDecorrelatedJitter(
+        if (jitter.maxDelay < 0 || !isFinite(jitter.maxDelay)) {
+          throw new Error(`Invalid maxDelay: ${jitter.maxDelay}. Must be a non-negative finite number.`);
+        }
+        if (jitter.maxDelay < baseDelay) {
+          throw new Error(`maxDelay (${jitter.maxDelay}) must be greater than or equal to baseDelay (${baseDelay}).`);
+        }
+        result = calculateDecorrelatedJitter(
           baseDelay,
           jitter.maxDelay,
           prevDelay
         );
+        validateJitterResult(result, 'decorrelated');
+        
+        // Decorrelated should never exceed maxDelay
+        if (result > jitter.maxDelay) {
+          throw new Error(`Decorrelated jitter result ${result} exceeds maxDelay ${jitter.maxDelay}`);
+        }
+        return result;
+
+      default:
+        // TypeScript exhaustiveness check
+        const _exhaustive: never = jitter;
+        throw new Error(`Unknown jitter type: ${(_exhaustive as JitterConfig).type}`);
     }
+  } catch (error) {
+    // Re-throw with additional context if it's not already our error
+    if (error instanceof Error && !error.message.includes('Invalid') && !error.message.includes('Jitter')) {
+      throw new Error(`Error applying jitter (${jitter.type}): ${error.message}`);
+    }
+    throw error;
   }
+}
   
 
 
